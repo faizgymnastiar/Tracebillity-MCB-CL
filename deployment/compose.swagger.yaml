@@ -1,0 +1,6 @@
+services:
+  trace-api:
+    environment:
+      Swagger__Enabled: "true"
+    ports:
+      - "127.0.0.1:${TRACE_SWAGGER_PORT:-5081}:8080"

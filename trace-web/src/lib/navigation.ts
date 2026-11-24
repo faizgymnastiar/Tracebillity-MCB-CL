@@ -1,0 +1,96 @@
+import type { NavGroupConfig } from '@/types';
+
+export const NAVIGATION_GROUPS: NavGroupConfig[] = [
+  {
+    id: 'overview',
+    label: 'OVERVIEW',
+    defaultOpen: true,
+    items: [
+      {
+        slug: 'home',
+        label: 'Control Room',
+        href: '/',
+        icon: 'home',
+        requiredPermission: 'traceability.view',
+        apiEndpoint: '/api/v1/traceability/daily-summary',
+        description: 'Ringkasan output harian dan akses cepat gerbang scan',
+      },
+    ],
+  },
+  {
+    id: 'traceability',
+    label: 'TRACEABILITY',
+    defaultOpen: true,
+    items: [
+      {
+        slug: 'scan',
+        label: 'Scan OK',
+        href: '/modules/traceability/scan',
+        icon: 'scan',
+        requiredPermission: 'scan.unit',
+        apiEndpoint: '/api/v1/ng/summary',
+        description: 'Gerbang scan end-of-line OK, NG, dan after rework',
+      },
+      {
+        slug: 'quarantine',
+        label: 'Karantina & Rework',
+        href: '/modules/traceability/quarantine',
+        icon: 'warning',
+        requiredPermission: 'ng.record',
+        apiEndpoint: '/api/v1/ng/summary',
+        description: 'Karantina NG, catat rework selesai, dan kunci OK akhir dua mode',
+      },
+      {
+        slug: 'labels',
+        label: 'Generate ID',
+        href: '/modules/traceability/labels',
+        icon: 'print',
+        requiredPermission: 'traceability.label',
+        apiEndpoint: '/api/v1/labels/batches',
+        description: 'Stok label QR internal NG, ekspor CSV NiceLabel, dan riwayat cetak',
+      },
+      {
+        slug: 'packing',
+        label: 'Packing Inner & Outer',
+        href: '/modules/traceability/packing',
+        icon: 'scan',
+        requiredPermission: 'traceability.packing',
+        apiEndpoint: '/api/v1/packing/work-order',
+        description: 'Pindai serial unit ke inner, lalu inner ke outer',
+      },
+      {
+        slug: 'database',
+        label: 'Riwayat Unit',
+        href: '/modules/traceability/database',
+        icon: 'database',
+        requiredPermission: 'traceability.history',
+        apiEndpoint: '/api/v1/packing/history',
+        description: 'Penelusuran serial number, inner box, dan outer box',
+      },
+      {
+        slug: 'reports',
+        label: 'Laporan Harian',
+        href: '/modules/traceability/reports',
+        icon: 'report',
+        requiredPermission: 'traceability.history',
+        apiEndpoint: '/api/v1/traceability/daily-summary',
+        description: 'Rekap produksi harian, yield, dan ekspor data',
+      },
+    ],
+  },
+  {
+    id: 'governance',
+    label: 'GOVERNANCE',
+    items: [
+      {
+        slug: 'super-admin',
+        label: 'Super Admin Studio',
+        href: '/super-admin',
+        icon: 'admin',
+        requiredPermission: 'gov.admin',
+        apiEndpoint: '/api/v1/config',
+        description: 'Kontrol brand, format kode, printer, dan master data',
+      },
+    ],
+  },
+];

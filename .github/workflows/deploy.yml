@@ -1,0 +1,107 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_VERSION: 8.0.x
+  NODE_VERSION: 22
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  trace-api:
+    name: build trace-api
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      - name: Restore
+        run: dotnet restore trace-api/Traceability.sln
+      - name: Build
+        run: dotnet build trace-api/Traceability.sln -c Release --no-restore
+
+  trace-web:
+    name: build trace-web
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: trace-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: trace-web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+        env:
+          TRACE_API_ORIGIN: http://127.0.0.1:5080
+
+  images:
+    name: publish container images
+    runs-on: ubuntu-latest
+    needs: [trace-api, trace-web]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build & push trace-api
+        uses: docker/build-push-action@v6
+        with:
+          context: trace-api
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/trace-api:latest
+            ghcr.io/${{ github.repository }}/trace-api:${{ github.sha }}
+      - name: Build & push trace-web
+        uses: docker/build-push-action@v6
+        with:
+          context: trace-web
+          push: true
+          build-args: |
+            TRACE_API_ORIGIN=http://trace-api:8080
+          tags: |
+            ghcr.io/${{ github.repository }}/trace-web:latest
+            ghcr.io/${{ github.repository }}/trace-web:${{ github.sha }}
+
+  deploy:
+    name: deploy ke server pabrik
+    runs-on: ubuntu-latest
+    needs: [images]
+    if: ${{ vars.DEPLOY_ENABLED == 'true' }}
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Siapkan kunci SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+      - name: Kirim berkas deployment
+        run: |
+          ssh "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "mkdir -p '${{ vars.DEPLOY_PATH }}/deployment'"
+          scp deployment/compose.yaml deployment/nginx-industrial.conf \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ vars.DEPLOY_PATH }}/deployment/"
+      - name: Pull & up
+        run: |
+          ssh "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "cd '${{ vars.DEPLOY_PATH }}/deployment' && docker compose pull && docker compose up -d --remove-orphans"

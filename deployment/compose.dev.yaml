@@ -1,0 +1,48 @@
+name: lelco-traceability-dev
+
+services:
+  trace-api:
+    image: mcr.microsoft.com/dotnet/sdk:8.0
+    working_dir: /workspace
+    command: ["dotnet", "watch", "--project", "src/Traceability.Api/Traceability.Api.csproj", "--non-interactive", "run", "--no-launch-profile"]
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      URLS: http://0.0.0.0:8080
+      DOTNET_USE_POLLING_FILE_WATCHER: "1"
+      UseArtifactsOutput: "true"
+      ArtifactsPath: /artifacts
+      Trace__Db__Path: /data/traceability.db
+      Trace__Labels__LedgerPath: /labels/issuance.log
+      Trace__BootstrapAdmin__Email: ${TRACE_DEV_BOOTSTRAP_EMAIL:-dev-admin@example.test}
+      Trace__BootstrapAdmin__Password: ${TRACE_DEV_BOOTSTRAP_PASSWORD:-}
+      Trace__Ng__SerialPattern: ${TRACE_DEV_SERIAL_PATTERN:-DEV-SN-[0-9]+}
+    volumes:
+      - ../trace-api:/workspace
+      - api-artifacts:/artifacts
+      - nuget:/root/.nuget/packages
+      - dev-data:/data
+      - dev-labels:/labels
+
+  trace-web:
+    image: node:22-alpine
+    working_dir: /workspace
+    command: ["sh", "-c", "npm ci && ./node_modules/.bin/next dev --webpack --hostname 0.0.0.0 --port 3000"]
+    environment:
+      WATCHPACK_POLLING: "true"
+      TRACE_API_ORIGIN: http://trace-api:8080
+    ports:
+      - "127.0.0.1:8000:3000"
+    volumes:
+      - ../trace-web:/workspace
+      - web-modules:/workspace/node_modules
+      - web-cache:/workspace/.next
+    depends_on:
+      - trace-api
+
+volumes:
+  api-artifacts:
+  nuget:
+  dev-data:
+  dev-labels:
+  web-modules:
+  web-cache:

@@ -1,0 +1,74 @@
+name: lelco-traceability
+
+# Jalankan dari folder ini:  docker compose up -d --build
+# Port publik hanya lewat nginx (8080). trace-api & trace-web tetap di network internal.
+
+services:
+  trace-api:
+    build:
+      context: ../trace-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      URLS: http://0.0.0.0:8080
+      Trace__InternalApiKey: ${TRACE_INTERNAL_API_KEY:-}
+      # Fondasi Fase 1 — basis data persisten, login wajib, masa berlaku sesi.
+      Trace__Db__Provider: sqlite
+      Trace__Db__Path: ${TRACE_DB_PATH:-data/traceability.db}
+      Trace__Auth__Enforced: ${TRACE_AUTH_ENFORCED:-true}
+      Trace__Session__LifetimeHours: ${TRACE_SESSION_LIFETIME_HOURS:-12}
+      # Admin awal dibuat hanya bila tabel akun masih kosong; kredensial bawaan
+      # tidak ada. Email wajib diisi; password kosong berarti dibuatkan sementara
+      # dan dicetak sekali di log container.
+      Trace__BootstrapAdmin__Email: ${TRACE_BOOTSTRAP_EMAIL:-}
+      Trace__BootstrapAdmin__Password: ${TRACE_BOOTSTRAP_PASSWORD:-}
+      # Stok label Fase 2 — batas jumlah label per permintaan generate/job cetak, dan
+      # lokasi catatan penerbitan (ledger) yang disimpan DI LUAR file basis data.
+      Trace__Labels__MaxPerRequest: ${TRACE_LABEL_MAX_PER_REQUEST:-500}
+      Trace__Labels__LedgerPath: ${TRACE_LABEL_LEDGER_PATH:-/var/lib/trace-labels/label-issuance.log}
+      # Fase 3 — batas percobaan rework per unit (default 3). Unit yang mencapai
+      # batas ini masuk Tahan QC dan diblokir dari packing sampai disposisi QC.
+      Trace__Ng__MaxAttempts: ${TRACE_NG_MAX_ATTEMPTS:-3}
+      Trace__Ng__SerialPattern: ${TRACE_NG_SERIAL_PATTERN:-}
+      Trace__UsbPrint__Enabled: ${TRACE_USB_PRINT_ENABLED:-false}
+    volumes:
+      # Berkas basis data: master, akun, sesi, WO, batch/label/job cetak.
+      - trace-data:/app/data
+      # Catatan penerbitan label sengaja berada di volume terpisah: backup DB yang
+      # tertinggal masih bisa direkonsiliasi selama volume ini tidak ikut dipulihkan.
+      - trace-label-ledger:/var/lib/trace-labels
+    networks:
+      - trace-net
+    restart: unless-stopped
+
+  trace-web:
+    build:
+      context: ../trace-web
+    environment:
+      NODE_ENV: production
+      TRACE_API_ORIGIN: http://trace-api:8080
+      TRACE_API_INTERNAL_KEY: ${TRACE_INTERNAL_API_KEY:-}
+    depends_on:
+      - trace-api
+    networks:
+      - trace-net
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - '${TRACE_PUBLIC_PORT:-8080}:80'
+    volumes:
+      - ./nginx-industrial.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - trace-web
+    networks:
+      - trace-net
+    restart: unless-stopped
+
+networks:
+  trace-net:
+    driver: bridge
+
+volumes:
+  trace-data:
+  trace-label-ledger:

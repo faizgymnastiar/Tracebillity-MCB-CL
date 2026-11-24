@@ -1,0 +1,44 @@
+# Build .NET
+bin/
+obj/
+*.user
+
+# Build Node / Next.js
+node_modules/
+.next/
+out/
+build/
+*.tsbuildinfo
+
+# Artefak QA lokal
+screenshots/
+
+# Referensi dan instruksi implementasi internal
+/reference/
+/.agents/
+/SSOT-PRD-Traceability-MCB-CL.md
+/docs/traceability/01-Fondasi.md
+/docs/traceability/02-Label-NG.md
+/docs/traceability/03-NG-Rework-OK.md
+/docs/traceability/04-Packing-Riwayat.md
+/docs/traceability/05-Cetak-USB.md
+/trace-backup-*/
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Basis data lokal trace-api (SQLite + WAL) — jangan ikut ter-commit
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Editor / OS
+.vs/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
